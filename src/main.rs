@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Local};
 use crossterm::{
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -149,6 +149,23 @@ impl App {
             self.scroll_position += 1;
         }
     }
+
+    fn scroll_page_up(&mut self) {
+        self.scroll_position = self.scroll_position.saturating_sub(10);
+    }
+
+    fn scroll_page_down(&mut self) {
+        let max_scroll = self.logs.len().saturating_sub(10);
+        self.scroll_position = (self.scroll_position + 10).min(max_scroll);
+    }
+
+    fn scroll_to_top(&mut self) {
+        self.scroll_position = 0;
+    }
+
+    fn scroll_to_bottom(&mut self) {
+        self.scroll_position = self.logs.len().saturating_sub(10);
+    }
 }
 
 fn main() -> Result<()> {
@@ -228,9 +245,16 @@ fn main() -> Result<()> {
             if let Event::Key(key) = event::read()? {
                 let mut app = app.lock().unwrap();
                 match key.code {
-                    KeyCode::Char('q') => app.should_quit = true,
+                    KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+                    KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        app.should_quit = true
+                    }
                     KeyCode::Up => app.scroll_up(),
                     KeyCode::Down => app.scroll_down(),
+                    KeyCode::PageUp => app.scroll_page_up(),
+                    KeyCode::PageDown => app.scroll_page_down(),
+                    KeyCode::Home => app.scroll_to_top(),
+                    KeyCode::End => app.scroll_to_bottom(),
                     _ => {}
                 }
             }
